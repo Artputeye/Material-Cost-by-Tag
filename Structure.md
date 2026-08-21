@@ -26,28 +26,28 @@ MATERIAL COST BY TAG/
 ├── Structure.md
 └── Temp.txt
 
-หมายเหตุ: `build.rb` เป็นไฟล์ว่างในปัจจุบัน ส่วน `MaterialCostByTag.rbz` เป็นไฟล์แพ็กเกจที่สร้างไว้แล้ว
+Note: `build.rb` is currently empty, while `MaterialCostByTag.rbz` is an existing package file.
 
-รายละเอียดหน้าที่ของแต่ละไฟล์และ Module
+File and Module Responsibilities
 
-1. Root Loader และ Entry Point
-- `MaterialCostByTag.rb`: โหลด `sketchup.rb` และ `extensions.rb` จากนั้นสร้างและลงทะเบียน `SketchupExtension` โดยชี้ไปที่ `src/main.rb` พร้อมกำหนดชื่อ ผู้พัฒนา เวอร์ชัน และคำอธิบาย
-- `src/main.rb`: โหลดไฟล์ Core และ `ui/dialog_manager.rb` ด้วย `require_relative` จากนั้นสร้างคำสั่งเมนู/Toolbar ชื่อ Material Cost และเชื่อมไปยัง `DialogManager.show_dialog`
+1. Root Loader and Entry Point
+- `MaterialCostByTag.rb`: Loads `sketchup.rb` and `extensions.rb`, then creates and registers a `SketchupExtension` pointing to `src/main.rb`, with its name, creator, version, and description.
+- `src/main.rb`: Loads the Core files and `ui/dialog_manager.rb` with `require_relative`, then creates the Material Cost menu/Toolbar command and connects it to `DialogManager.show_dialog`.
 
 2. Core Modules
-- `MaterialCostByTag::Calculator` (`src/core/calculator.rb`): แปลงปริมาณจากหน่วยภายในของ SketchUp (นิ้ว) เป็น `m`, `m2`, `m3`, `ft`, `ft2`, `ft3` หรือ `yd3` และคำนวณต้นทุนด้วย Factor, Waste% และ Tax%
-- `MaterialCostByTag::TagMeasurer` (`src/core/tag_measurer.rb`): วัดความยาวขอบที่ยาวที่สุด พื้นที่ Face ที่ใหญ่ที่สุด และปริมาตรของ Group/ComponentInstance ตาม Tag แล้วส่งค่ากลับเป็น `m`, `m2` และ `m3`
-- `MaterialCostByTag::ModelCollector` (`src/core/model_collector.rb`): อ่านรายชื่อ Tag จาก Layers ของ Active Model และเลือก Group/ComponentInstance ที่ตรงกับ Tag เพื่อ Highlight ใน Selection
-- `MaterialCostByTag::PriceStore` (`src/core/price_store.rb`): บันทึก/โหลดข้อมูลราคาใน Attribute Dictionary ของโมเดล (`MaterialCostByTag_Data`) และสำรองข้อมูลใน `data/prices.json` พร้อมทำความสะอาดข้อมูลก่อนบันทึก
-- `MaterialCostByTag::CsvExporter` และ `MaterialCostByTag::CsvImporter` (`src/core/csv_handler.rb`): ส่งออกข้อมูลรายการเป็น CSV และนำเข้า CSV เพื่ออัปเดตรายการเดิมหรือเพิ่มรายการใหม่ โดยจับคู่ด้วย Tag และ Description
+- `MaterialCostByTag::Calculator` (`src/core/calculator.rb`): Converts quantities from SketchUp internal units (inches) to `m`, `m2`, `m3`, `ft`, `ft2`, `ft3`, or `yd3`, and calculates costs using Factor, Waste%, and Tax%.
+- `MaterialCostByTag::TagMeasurer` (`src/core/tag_measurer.rb`): Measures the longest edge, largest Face area, and volume of Groups and ComponentInstances by Tag, returning `m`, `m2`, and `m3` values.
+- `MaterialCostByTag::ModelCollector` (`src/core/model_collector.rb`): Reads Tag names from the active model's Layers and selects matching Groups and ComponentInstances for highlighting.
+- `MaterialCostByTag::PriceStore` (`src/core/price_store.rb`): Saves and loads price data in the model Attribute Dictionary (`MaterialCostByTag_Data`) and backs it up to `data/prices.json`, sanitizing data before saving.
+- `MaterialCostByTag::CsvExporter` and `MaterialCostByTag::CsvImporter` (`src/core/csv_handler.rb`): Export the schedule as CSV and import CSV files to update existing rows or add new rows by matching Tag and Description.
 
 3. UI
-- `MaterialCostByTag::DialogManager` (`ui/dialog_manager.rb`): สร้าง `UI::HtmlDialog`, เปิด `ui/index.html` และผูก callbacks `get_tags`, `get_all_saved_data`, `get_tag_measurements`, `save_tag_cost_data`, `export_csv_data` และ `import_csv_data`
-- `ui/index.html`: โครงหน้าเว็บ ตารางรายการวัสดุ แถบสรุปราคารวม/น้ำหนักรวม และปุ่มนำเข้า/ส่งออก/บันทึก
-- `ui/app.js`: จัดการตาราง คำนวณปริมาณ น้ำหนัก ต้นทุนรวม สรุปยอด บันทึก/นำเข้า/ส่งออกข้อมูล และสื่อสารกับ Ruby ผ่าน `window.sketchup`
-- `ui/styles.css`: รูปแบบการแสดงผลของหน้าต่าง UI
+- `MaterialCostByTag::DialogManager` (`ui/dialog_manager.rb`): Creates `UI::HtmlDialog`, opens `ui/index.html`, and registers the `get_tags`, `get_all_saved_data`, `get_tag_measurements`, `save_tag_cost_data`, `export_csv_data`, and `import_csv_data` callbacks.
+- `ui/index.html`: Defines the web layout, material schedule table, total cost/weight summary, and import/export/save buttons.
+- `ui/app.js`: Manages the table, quantity, weight, and cost calculations, totals, data save/import/export, and communication with Ruby through `window.sketchup`.
+- `ui/styles.css`: Provides the UI styling.
 
-4. Build และข้อมูลประกอบ
-- `build.ps1`: บีบอัด `MaterialCostByTag.rb`, `data`, `icons`, `src` และ `ui` เป็น `MaterialCostByTag.rbz`
-- `data/prices.json`: ไฟล์ข้อมูลราคาที่ใช้เป็นแหล่งสำรอง/เก็บข้อมูลราคา
-- `icons/material_cost_icon_32.png`: ไอคอนของคำสั่งบน Toolbar
+4. Build and Supporting Files
+- `build.ps1`: Compresses `MaterialCostByTag.rb`, `data`, `icons`, `src`, and `ui` into `MaterialCostByTag.rbz`.
+- `data/prices.json`: Price data file used as a backup and storage source.
+- `icons/material_cost_icon_32.png`: Icon used by the Toolbar command.

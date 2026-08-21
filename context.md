@@ -1,32 +1,32 @@
-คำอธิบายการทำงานของโปรแกรม (Overview)
+Program Overview
 
-โปรแกรมนี้คือ SketchUp Extension สำหรับจัดทำรายการวัสดุและคำนวณต้นทุนตาม Tag ของโมเดล 3D โดยแบ่งเป็น Ruby Backend ที่เชื่อมต่อกับ SketchUp API และ HTML/CSS/JavaScript Frontend ที่ทำงานใน `UI::HtmlDialog`
+This SketchUp Extension creates material schedules and calculates costs by Tag from a 3D model. It consists of a Ruby backend connected to the SketchUp API and an HTML/CSS/JavaScript frontend running inside `UI::HtmlDialog`.
 
-1. การโหลด Extension และเปิดหน้าต่าง
-- `MaterialCostByTag.rb` ลงทะเบียน Extension และชี้ไปยัง `src/main.rb`
-- `src/main.rb` โหลด Core Modules และ `ui/dialog_manager.rb` จากนั้นสร้างคำสั่ง Material Cost ในเมนู Plugins และ Toolbar
-- `DialogManager` เปิด `ui/index.html` และผูก Ruby callbacks กับ JavaScript bridge
+1. Extension Loading and Dialog Startup
+- `MaterialCostByTag.rb` registers the Extension and points it to `src/main.rb`.
+- `src/main.rb` loads the Core Modules and `ui/dialog_manager.rb`, then creates the Material Cost command in the Plugins menu and Toolbar.
+- `DialogManager` opens `ui/index.html` and connects Ruby callbacks to the JavaScript bridge.
 
-2. การอ่าน Tag และวัดปริมาณ
-- `ModelCollector.get_all_tags` อ่านรายชื่อจาก Layers ของ Active Model แล้วลบรายการซ้ำและเรียงตามตัวอักษร
-- `TagMeasurer.get_tag_measurements` ตรวจ Group และ ComponentInstance ระดับบนสุดที่มี Tag ตรงกัน
-- สำหรับแต่ละวัตถุ ระบบหาความยาวขอบที่มากที่สุด พื้นที่ Face ที่มากที่สุด และปริมาตร แล้วแปลงเป็น `m`, `m2` และ `m3`
-- `ModelCollector.highlight_tag` มีความสามารถเลือก Group/ComponentInstance ตาม Tag ใน SketchUp Selection แต่ปัจจุบันยังไม่มี UI callback ที่เรียกฟังก์ชันนี้
+2. Tag Reading and Quantity Measurement
+- `ModelCollector.get_all_tags` reads the layer list from the active model, removes duplicates, and sorts the names.
+- `TagMeasurer.get_tag_measurements` checks top-level Groups and ComponentInstances with the selected Tag.
+- For each object, the system finds the longest edge, largest Face area, and volume, then converts the results to `m`, `m2`, and `m3`.
+- `ModelCollector.highlight_tag` can select Groups and ComponentInstances by Tag in the SketchUp Selection, but no current UI callback calls this function.
 
-3. การสื่อสารระหว่าง Ruby และ UI
-- เมื่อ UI เรียก `get_tags`, `get_all_saved_data` หรือ `get_tag_measurements` Ruby จะส่งข้อมูลกลับด้วย `execute_script()` ในรูป JSON
-- UI เรียก Ruby ผ่าน `window.sketchup` สำหรับ `save_tag_cost_data`, `export_csv_data` และ `import_csv_data`
-- การคำนวณยอดรวม น้ำหนัก และต้นทุนต่อแถวทำใน `ui/app.js` และอัปเดตทันทีเมื่อค่าป้อนเปลี่ยน
+3. Ruby and UI Communication
+- When the UI calls `get_tags`, `get_all_saved_data`, or `get_tag_measurements`, Ruby sends JSON data back using `execute_script()`.
+- The UI calls Ruby through `window.sketchup` for `save_tag_cost_data`, `export_csv_data`, and `import_csv_data`.
+- Row calculations, total weight, and total cost are handled in `ui/app.js` and update immediately when input values change.
 
-4. การคำนวณต้นทุนและน้ำหนัก
-- ผู้ใช้กำหนด Quantity, Factor, Weight/Unit, Unit Cost, Waste% และ Tax%
-- สูตรต้นทุน:
+4. Cost and Weight Calculation
+- The user enters Quantity, Factor, Weight/Unit, Unit Cost, Waste%, and Tax%.
+- Cost formula:
   `Cost = Quantity x Factor x Unit Cost x (1 + Waste% / 100) x (1 + Tax% / 100)`
-- น้ำหนักต่อแถวคำนวณจาก `Quantity x Factor x Weight/Unit` และรวมเป็น Total Weight (kg)
-- หน่วยปริมาณที่ UI รองรับคือ `m`, `m2` และ `m3` โดยเลือกค่าจากผลการวัดของ Tag
+- Row weight is calculated as `Quantity x Factor x Weight/Unit` and summed as Total Weight (kg).
+- The UI supports `m`, `m2`, and `m3`, using the measurement returned for the selected Tag.
 
-5. การจัดเก็บและถ่ายโอนข้อมูล
-- `PriceStore` ทำความสะอาดข้อมูลรายการก่อนบันทึก โดยเก็บ JSON ใน Attribute Dictionary `MaterialCostByTag_Data` ของโมเดล
-- หากไม่พบข้อมูลในโมเดล ระบบจะอ่านจาก `data/prices.json`
-- `CsvExporter` ส่งออกรายการเป็น CSV พร้อม UTF-8 BOM เพื่อให้เปิดใน Excel ได้สะดวก
-- `CsvImporter` จับคู่รายการเดิมด้วย Tag และ Description ถ้าพบจะอัปเดต ถ้าไม่พบจะเพิ่มรายการใหม่
+5. Data Storage and Transfer
+- `PriceStore` sanitizes each item before saving and stores JSON in the model Attribute Dictionary `MaterialCostByTag_Data`.
+- If no data is found in the model, the system loads data from `data/prices.json`.
+- `CsvExporter` exports the schedule as CSV with a UTF-8 BOM for convenient use with Excel.
+- `CsvImporter` matches existing rows by Tag and Description. Matching rows are updated; unmatched rows are added.
