@@ -1,34 +1,34 @@
 # Material Cost by Tag
 
-SketchUp Extension สำหรับจัดทำรายการวัสดุและคำนวณต้นทุนตาม Tag ของโมเดล
+SketchUp Extension for creating material schedules and calculating model costs by Tag.
 
-## ฟีเจอร์
+## Features
 
-- โหลดรายชื่อ Tag จากโมเดลปัจจุบัน
-- วัดปริมาณของ Group และ ComponentInstance ตาม Tag เป็น `m`, `m2` และ `m3`
-- คำนวณน้ำหนักรวมและต้นทุนรวมจาก Quantity, Factor, Weight/Unit, Unit Cost, Waste% และ Tax%
-- บันทึกข้อมูลลง Attribute Dictionary ของโมเดล และสำรองลง `data/prices.json`
-- นำเข้าและส่งออกรายการวัสดุเป็น CSV
-- จัดเรียง ลบ และลากสลับลำดับรายการในตาราง
+- Load Tags from the active model.
+- Measure Group and ComponentInstance quantities by Tag as `m`, `m2`, and `m3`.
+- Calculate total weight and cost using Quantity, Factor, Weight/Unit, Unit Cost, Waste%, and Tax%.
+- Save data to the model Attribute Dictionary and back it up to `data/prices.json`.
+- Import and export material schedules as CSV files.
+- Sort, delete, and drag to reorder table rows.
 
-## การติดตั้ง
+## Installation
 
-1. เปิด SketchUp
-2. ไปที่ `Window > Extension Manager`
-3. เลือก `Install Extension...`
-4. เลือกไฟล์ `MaterialCostByTag.rbz`
-5. เปิดคำสั่ง `Material Cost` จากเมนู Plugins หรือ Toolbar
+1. Open SketchUp.
+2. Go to `Window > Extension Manager`.
+3. Select `Install Extension...`.
+4. Select `MaterialCostByTag.rbz`.
+5. Open `Material Cost` from the Plugins menu or Toolbar.
 
-## การใช้งาน
+## Usage
 
-1. เลือก Tag จากรายการด้านบน
-2. กดเพิ่มแถว แล้วกรอก Description, Factor, Weight/Unit, Unit Cost, Waste% และ Tax%
-3. เลือกหน่วย `m`, `m2` หรือ `m3` เพื่อใช้ปริมาณที่วัดจากโมเดล
-4. ตรวจสอบน้ำหนักและต้นทุนรวมในตาราง
-5. กด `SAVE` เพื่อบันทึกข้อมูล
-6. ใช้ปุ่ม Import/Export CSV เพื่อถ่ายโอนข้อมูลระหว่างไฟล์
+1. Select a Tag from the dropdown.
+2. Add a row and enter Description, Factor, Weight/Unit, Unit Cost, Waste%, and Tax%.
+3. Select `m`, `m2`, or `m3` to use the measured quantity from the model.
+4. Review the row totals and grand totals in the table.
+5. Click `SAVE` to store the data.
+6. Use the Import/Export CSV buttons to transfer data between files.
 
-สูตรต้นทุนต่อรายการคือ:
+The cost formula for each row is:
 
 ```text
 Cost = Quantity x Factor x Unit Cost
@@ -36,35 +36,35 @@ Cost = Quantity x Factor x Unit Cost
        x (1 + Tax% / 100)
 ```
 
-## โครงสร้างโครงการ
+## Project Structure
 
 ```text
-MaterialCostByTag.rb        # ลงทะเบียน SketchUp Extension
-src/main.rb                 # โหลดโมดูลและสร้างเมนู/Toolbar
-src/core/calculator.rb      # แปลงหน่วยและคำนวณต้นทุน
-src/core/tag_measurer.rb    # วัดความยาว พื้นที่ และปริมาตรตาม Tag
-src/core/model_collector.rb # อ่าน Tag และเลือกวัตถุตาม Tag
-src/core/price_store.rb     # จัดเก็บข้อมูลในโมเดลและ prices.json
-src/core/csv_handler.rb     # Import/Export CSV
-ui/dialog_manager.rb        # สร้าง HtmlDialog และ callbacks
-ui/index.html               # โครงสร้างหน้าต่าง UI
-ui/app.js                   # ตารางและการคำนวณฝั่ง UI
-ui/styles.css               # รูปแบบหน้าต่าง UI
-build.ps1                   # สร้างไฟล์ .rbz
+MaterialCostByTag.rb        # Registers the SketchUp Extension
+src/main.rb                 # Loads modules and creates the menu/Toolbar
+src/core/calculator.rb      # Unit conversion and cost calculations
+src/core/tag_measurer.rb    # Measures length, area, and volume by Tag
+src/core/model_collector.rb # Reads Tags and selects objects by Tag
+src/core/price_store.rb     # Stores data in the model and prices.json
+src/core/csv_handler.rb     # CSV import/export
+ui/dialog_manager.rb        # Creates the HtmlDialog and callbacks
+ui/index.html               # UI structure
+ui/app.js                   # UI table and calculations
+ui/styles.css               # UI styling
+build.ps1                   # Builds the .rbz package
 ```
 
-## การสร้างไฟล์ RBZ
+## Building the RBZ Package
 
-ต้องใช้ Windows PowerShell และรันจากโฟลเดอร์โครงการ:
+Use Windows PowerShell and run the command from the project directory:
 
 ```powershell
 .\build.ps1
 ```
 
-สคริปต์จะสร้างหรือแทนที่ไฟล์ `MaterialCostByTag.rbz` โดยรวมไฟล์ Loader, `data`, `icons`, `src` และ `ui` เท่านั้น
+The script creates or replaces `MaterialCostByTag.rbz` and includes only the Loader, `data`, `icons`, `src`, and `ui` files.
 
-## หมายเหตุ
+## Notes
 
-- โค้ด Ruby ต้องทำงานภายใน SketchUp เนื่องจากใช้ SketchUp Ruby API และ `UI::HtmlDialog`
-- ปริมาณที่วัดได้มาจาก Group และ ComponentInstance ระดับบนสุดของโมเดล
-- `MaterialCostByTag.rbz` เป็นแพ็กเกจที่สร้างไว้แล้ว ส่วน `build.rb` ยังเป็นไฟล์ว่าง
+- The Ruby code must run inside SketchUp because it uses the SketchUp Ruby API and `UI::HtmlDialog`.
+- Measurements are taken from top-level Groups and ComponentInstances in the model.
+- `MaterialCostByTag.rbz` is the existing package; `build.rb` is currently empty.
