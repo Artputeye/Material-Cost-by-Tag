@@ -1,24 +1,32 @@
 คำอธิบายการทำงานของโปรแกรม (Overview)
 
-โปรแกรมนี้คือ SketchUp Extension สำหรับคำนวณปริมาณวัสดุและประเมินราคาก่อสร้าง (BOQ) โดยอ้างอิงจาก Tag (Layer) ของโมเดล 3D มีโครงสร้างการทำงานแบบสองส่วนคือ Ruby (Backend) ที่เชื่อมต่อกับ SketchUp และ HTML/CSS/JS (Frontend) ที่เป็นหน้าต่างโต้ตอบกับผู้ใช้
+โปรแกรมนี้คือ SketchUp Extension สำหรับจัดทำรายการวัสดุและคำนวณต้นทุนตาม Tag ของโมเดล 3D โดยแบ่งเป็น Ruby Backend ที่เชื่อมต่อกับ SketchUp API และ HTML/CSS/JavaScript Frontend ที่ทำงานใน `UI::HtmlDialog`
 
-1. การสแกนโมเดลและเก็บข้อมูล (Ruby Backend)
-- ค้นหาโครงสร้าง 3D: ระบบจะวนลูปค้นหา Face (พื้นผิว) ทั้งหมดในโมเดล รวมถึงชิ้นงานที่ถูกซ้อนไว้ภายใน Group และ ComponentInstance
-- จำแนก Tag: ตรวจสอบว่าวัตถุชิ้นนั้นถูกจัดอยู่ใน Tag ใด (หากไม่ได้ใส่ Tag จะถูกจัดเป็น UNTAGGED)
-- คำนวณขนาด: แปลงค่ามิติจากระบบของ SketchUp ให้เป็นหน่วยเมตริก เช่น ตารางเมตร (m²), เมตร (m) หรือลูกบาศก์เมตร (m³)
+1. การโหลด Extension และเปิดหน้าต่าง
+- `MaterialCostByTag.rb` ลงทะเบียน Extension และชี้ไปยัง `src/main.rb`
+- `src/main.rb` โหลด Core Modules และ `ui/dialog_manager.rb` จากนั้นสร้างคำสั่ง Material Cost ในเมนู Plugins และ Toolbar
+- `DialogManager` เปิด `ui/index.html` และผูก Ruby callbacks กับ JavaScript bridge
 
-2. การสื่อสารข้ามระบบ (Bridge Communication)
-- Ruby -> UI: เมื่อคำนวณปริมาณงานจากโมเดลเสร็จ Ruby จะแปลงข้อมูลเป็น JSON แล้วส่งไปให้หน้าเว็บผ่าน .execute_script() เพื่อวาดตารางสรุปผล
-- UI -> Ruby: เมื่อผู้ใช้กดปุ่มบนหน้าจอ (เช่น Save, Refresh, Highlight) JavaScript จะส่งคำสั่งผ่าน window.sketchup.action_name() กลับมาสั่งงาน SketchUp
+2. การอ่าน Tag และวัดปริมาณ
+- `ModelCollector.get_all_tags` อ่านรายชื่อจาก Layers ของ Active Model แล้วลบรายการซ้ำและเรียงตามตัวอักษร
+- `TagMeasurer.get_tag_measurements` ตรวจ Group และ ComponentInstance ระดับบนสุดที่มี Tag ตรงกัน
+- สำหรับแต่ละวัตถุ ระบบหาความยาวขอบที่มากที่สุด พื้นที่ Face ที่มากที่สุด และปริมาตร แล้วแปลงเป็น `m`, `m2` และ `m3`
+- `ModelCollector.highlight_tag` มีความสามารถเลือก Group/ComponentInstance ตาม Tag ใน SketchUp Selection แต่ปัจจุบันยังไม่มี UI callback ที่เรียกฟังก์ชันนี้
 
-3. การคำนวณต้นทุนวัสดุ (Cost Calculation)
-หน้าจอ UI จะรับค่าพารามิเตอร์จากผู้ใช้เพื่อนำมาคำนวณราคาแบบเรียลไทม์:
-- ตัวแปรต้นทุน: รองรับการใส่ราคาต่อหน่วย (Unit Cost), ตัวคูณแปลงหน่วย (Factor), เปอร์เซ็นต์เผื่อเสีย (Waste%), และภาษี (Tax%)
-- สูตรการคิดราคา:
-  Total Cost = Quantity x (Unit Cost x Factor) x (1 + Waste% / 100) x (1 + Tax% / 100)
-- น้ำหนัก (Weight): คำนวณน้ำหนักวัสดุร่วมกับความหนาแน่น เช่น kg/m³ หรือ kg/m สำหรับงานเหล็กและคอนกรีต
+3. การสื่อสารระหว่าง Ruby และ UI
+- เมื่อ UI เรียก `get_tags`, `get_all_saved_data` หรือ `get_tag_measurements` Ruby จะส่งข้อมูลกลับด้วย `execute_script()` ในรูป JSON
+- UI เรียก Ruby ผ่าน `window.sketchup` สำหรับ `save_tag_cost_data`, `export_csv_data` และ `import_csv_data`
+- การคำนวณยอดรวม น้ำหนัก และต้นทุนต่อแถวทำใน `ui/app.js` และอัปเดตทันทีเมื่อค่าป้อนเปลี่ยน
 
-4. ฟังก์ชันการทำงานเสริม
-- Highlight Results: สั่งให้ SketchUp ไฮไลต์เลือก (Select) วัตถุในโมเดล 3D จริงตาม Tag ที่กำลังตรวจสอบ
-- Currency Conversion: แปลงสลับสกุลเงินคำนวณ (THB, USD, EUR, SGD) ตามอัตราแลกเปลี่ยนที่กำหนดไว้
-- Data Persistence & Export: บันทึกตารางราคาลงไฟล์ prices.json เพื่อนำกลับมาใช้ใหม่ได้ และสามารถส่งออกรายงานเป็นไฟล์ .csv สำหรับเปิดใน Excel
+4. การคำนวณต้นทุนและน้ำหนัก
+- ผู้ใช้กำหนด Quantity, Factor, Weight/Unit, Unit Cost, Waste% และ Tax%
+- สูตรต้นทุน:
+  `Cost = Quantity x Factor x Unit Cost x (1 + Waste% / 100) x (1 + Tax% / 100)`
+- น้ำหนักต่อแถวคำนวณจาก `Quantity x Factor x Weight/Unit` และรวมเป็น Total Weight (kg)
+- หน่วยปริมาณที่ UI รองรับคือ `m`, `m2` และ `m3` โดยเลือกค่าจากผลการวัดของ Tag
+
+5. การจัดเก็บและถ่ายโอนข้อมูล
+- `PriceStore` ทำความสะอาดข้อมูลรายการก่อนบันทึก โดยเก็บ JSON ใน Attribute Dictionary `MaterialCostByTag_Data` ของโมเดล
+- หากไม่พบข้อมูลในโมเดล ระบบจะอ่านจาก `data/prices.json`
+- `CsvExporter` ส่งออกรายการเป็น CSV พร้อม UTF-8 BOM เพื่อให้เปิดใน Excel ได้สะดวก
+- `CsvImporter` จับคู่รายการเดิมด้วย Tag และ Description ถ้าพบจะอัปเดต ถ้าไม่พบจะเพิ่มรายการใหม่
