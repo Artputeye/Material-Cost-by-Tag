@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Material Cost</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <div class="app-container">
+    <div class="header">
+      <h2>Material Cost</h2>
+    </div>
+
+    <!-- Top Toolbar -->
+    <div class="top-toolbar">
+      <div class="toolbar-left" style="display: flex; align-items: center; gap: 8px;">
+        <label for="tagSelect">Tag</label>
+        <select id="tagSelect" class="input-control tag-dropdown">
+          <option value="">-- Loading Tags... --</option>
+        </select>
+      </div>
+
+      <div class="toolbar-right">
+        <div class="icon-actions">
+          <button type="button" id="importCsvBtn" class="btn-icon" title="Import CSV">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+          </button>
+          <button type="button" id="csvBtn" class="btn-icon" title="Export CSV">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+          </button>
+          <button type="button" id="addRowBtn" class="btn-icon btn-add" title="Add Row">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Summary Bar -->
+    <div class="summary-toolbar">
+      <div class="summary-left">
+        <div class="summary-item">
+          <label for="grandTotalCost">Total Cost</label>
+          <input type="text" id="grandTotalCost" class="input-control summary-display" value="0.00" readonly tabindex="-1" />
+        </div>
+        <div class="summary-item">
+          <label for="grandTotalWeight">Total Weight (kg)</label>
+          <input type="text" id="grandTotalWeight" class="input-control summary-display weight-summary" value="0.00" readonly tabindex="-1" />
+        </div>
+      </div>
+      <div class="summary-right">
+        <button type="button" id="saveBtn" class="btn-ok">SAVE</button>
+      </div>
+    </div>
+
+    <!-- Main Table -->
+    <div class="table-wrapper">
+      <table id="mainTable">
+        <thead>
+          <tr>
+            <th data-col-id="col-drag" style="width: 35px;"></th>
+            <th data-col-id="col-tag" class="sortable" data-sort-type="string" data-sort-selector=".tag-input" style="width: 140px;">Tag<div class="resizer"></div></th>
+            <th data-col-id="col-desc" class="sortable" data-sort-type="string" data-sort-selector=".desc-input" style="width: 180px;">Description<div class="resizer"></div></th>
+            <th data-col-id="col-qty" class="sortable" data-sort-type="number" data-sort-selector=".qty-input" style="width: 90px;">Quantity<div class="resizer"></div></th>
+            <th data-col-id="col-unit" style="width: 75px;">Unit<div class="resizer"></div></th>
+            <th data-col-id="col-factor" style="width: 70px;">Factor<div class="resizer"></div></th>
+            <th data-col-id="col-w-unit" class="sortable" data-sort-type="number" data-sort-selector=".weight-unit-input" style="width: 100px;">Weight/Unit<div class="resizer"></div></th>
+            <th data-col-id="col-w-total" class="sortable" data-sort-type="number" data-sort-selector=".row-weight-input" style="width: 110px;">Total Weight (kg)<div class="resizer"></div></th>
+            <th data-col-id="col-cost-unit" class="sortable" data-sort-type="number" data-sort-selector=".cost-input" style="width: 100px;">Unit Cost<div class="resizer"></div></th>
+            <th data-col-id="col-waste" style="width: 70px;">Waste%<div class="resizer"></div></th>
+            <th data-col-id="col-tax" style="width: 70px;">Tax%<div class="resizer"></div></th>
+            <th data-col-id="col-cost-total" class="sortable" data-sort-type="number" data-sort-selector=".total-cost-input" style="width: 110px;">Cost<div class="resizer"></div></th>
+            <th data-col-id="col-comment" style="width: 35px;"></th>
+            <th data-col-id="col-delete" style="width: 35px;"></th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Custom Alert Container -->
+  <div id="toastNotification" class="toast hidden">
+    <div class="toast-content">
+      <span id="toastMessage"></span>
+      <button type="button" class="toast-close" onclick="hideAlert()">&times;</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+
+</html>

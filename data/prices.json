@@ -1,0 +1,7 @@
+{
+  "WALL": 450.0,
+  "FLOOR": 850.0,
+  "CEILING": 350.0,
+  "ROOF": 400.0,
+  "UNTAGGED": 0.0
+}
