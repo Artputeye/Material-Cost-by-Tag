@@ -53,13 +53,14 @@ module MaterialCostByTag
 
       {
         'items' => (data['items'] || []).map do |item|
+          unit_val = (item['unit'] || item['input']).to_s
           {
             'tag'         => item['tag'].to_s,
             'description' => item['description'].to_s,
-            'input'       => item['input'].to_s,
             'quantity'    => item['quantity'].to_f,
+            'unit'        => unit_val,
+            'input'       => unit_val,
             'factor'      => item['factor'].to_f,
-            'unit'        => item['unit'].to_s,
             'weightUnit'  => item['weightUnit'].to_f,
             'weightTotal' => item['weightTotal'].to_f,
             'unitCost'    => item['unitCost'].to_f,

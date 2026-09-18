@@ -1,4 +1,5 @@
 # csv_handler.rb
+
 require 'csv'
 require 'json'
 require_relative 'price_store'
@@ -15,16 +16,18 @@ module MaterialCostByTag
       File.open(file_path, "w:UTF-8") do |file|
         file.write("\xEF\xBB\xBF") # UTF-8 BOM
         file.puts [
-          'Tag', 'Description', 'Input', 'Factor', 
+          'Tag', 'Description', 'Quantity', 'Unit', 'Factor', 
           'Weight/Unit', 'Weight Total (kg)', 
           'Unit Cost', 'Waste%', 'Tax%', 'Cost'
         ].join(',')
 
         items.each do |item|
+          unit_val = item['unit'] || item['input']
           row = [
             escape_csv(item['tag']),
             escape_csv(item['description']),
-            escape_csv(item['input']),
+            item['quantity'].to_f,
+            escape_csv(unit_val),
             item['factor'].to_f,
             item['weightUnit'].to_f,
             item['weightTotal'].to_f,
@@ -57,7 +60,6 @@ module MaterialCostByTag
       file_path = UI.openpanel("Import Material Cost CSV", "", "CSV Files|*.csv;||")
       return nil unless file_path && File.exist?(file_path)
 
-      # ดึงข้อมูลปัจจุบันในเครื่อง/โมเดลมาตั้งต้น
       model = Sketchup.active_model
       existing_data = PriceStore.load_all_prices(model)
       current_items = existing_data['items'] || []
@@ -65,52 +67,100 @@ module MaterialCostByTag
       updated_count = 0
       added_count = 0
 
-      CSV.foreach(file_path, headers: true, encoding: 'bom|utf-8') do |row|
-        next if row.to_h.values.all?(&:nil?)
+      # อ่านไฟล์และบังคับแปลง Encoding ภาษาไทยเป็น UTF-8 สมบูรณ์
+      content = read_file_utf8(file_path)
 
-        csv_tag  = (row['Tag'] || '').strip
-        csv_desc = (row['Description'] || '').strip
+      CSV.parse(content, headers: true, skip_blanks: true, liberal_parsing: true) do |raw_row|
+        next if raw_row.to_h.values.all?(&:nil?)
 
-        csv_item_data = {
-          'tag'         => csv_tag,
-          'description' => csv_desc,
-          'input'       => row['Input'] || 'm2',
-          'factor'      => (row['Factor'] || 1.0).to_f,
-          'weightUnit'  => (row['Weight/Unit'] || row['Weight Unit'] || 0.0).to_f,
-          'unitCost'    => (row['Unit Cost'] || 0.0).to_f,
-          'waste'       => (row['Waste%'] || 0.0).to_f,
-          'tax'         => (row['Tax%'] || 0.0).to_f
-        }
+        row = raw_row.to_h.transform_keys { |k| k.to_s.strip.downcase }
 
-        # ตรวจสอบว่า Tag และ Description ตรงกับที่มีอยู่ในเครื่องหรือไม่
+        csv_tag  = normalize_str(row['tag'])
+        csv_desc = normalize_str(row['description'])
+
+        next if csv_tag.empty? && csv_desc.empty?
+
+        factor_val   = get_row_value(row, ['factor'])
+        weight_u_val = get_row_value(row, ['weight/unit', 'weight unit', 'weight_unit', 'weight'])
+        unit_cost_val= get_row_value(row, ['unit cost', 'unitcost', 'cost/unit', 'price'])
+        waste_val    = get_row_value(row, ['waste%', 'waste', 'waste_percent'])
+        tax_val      = get_row_value(row, ['tax%', 'tax', 'tax_percent'])
+
         matched_item = current_items.find do |item|
-          item['tag'].to_s.strip.downcase == csv_tag.downcase &&
-          item['description'].to_s.strip.downcase == csv_desc.downcase
+          item_tag  = normalize_str(item['tag'])
+          item_desc = normalize_str(item['description'])
+
+          item_tag.downcase == csv_tag.downcase && item_desc.downcase == csv_desc.downcase
         end
 
         if matched_item
-          # ถ้าตรงกัน ดึงค่าจาก CSV มาทับรายการเดิม
-          matched_item['input']      = csv_item_data['input']
-          matched_item['factor']     = csv_item_data['factor']
-          matched_item['weightUnit'] = csv_item_data['weightUnit']
-          matched_item['unitCost']   = csv_item_data['unitCost']
-          matched_item['waste']      = csv_item_data['waste']
-          matched_item['tax']        = csv_item_data['tax']
+          matched_item['factor']     = factor_val unless factor_val.nil?
+          matched_item['weightUnit'] = weight_u_val unless weight_u_val.nil?
+          matched_item['unitCost']   = unit_cost_val unless unit_cost_val.nil?
+          matched_item['waste']      = waste_val unless waste_val.nil?
+          matched_item['tax']        = tax_val unless tax_val.nil?
+
+          qty      = matched_item['quantity'].to_f
+          factor   = matched_item['factor'].to_f
+          weight_u = matched_item['weightUnit'].to_f
+          u_cost   = matched_item['unitCost'].to_f
+          waste    = matched_item['waste'].to_f
+          tax      = matched_item['tax'].to_f
+
+          matched_item['weightTotal'] = (qty * factor * weight_u).round(2)
+          base_cost = qty * factor * u_cost
+          matched_item['cost'] = (base_cost * (1 + waste / 100.0) * (1 + tax / 100.0)).round(2)
+
           updated_count += 1
         else
-          # ถ้าไม่ตรง เพิ่มเป็นรายการใหม่
-          current_items << csv_item_data
+          unit_val = get_row_text(row, ['unit', 'input']) || 'm2'
+          qty      = get_row_value(row, ['quantity', 'qty']) || 0.0
+          factor   = factor_val || 1.0
+          weight_u = weight_u_val || 0.0
+          u_cost   = unit_cost_val || 0.0
+          waste    = waste_val || 0.0
+          tax      = tax_val || 0.0
+
+          weight_total = (qty * factor * weight_u).round(2)
+          base_cost    = qty * factor * u_cost
+          cost         = (base_cost * (1 + waste / 100.0) * (1 + tax / 100.0)).round(2)
+
+          new_item = {
+            'tag'         => csv_tag,
+            'description' => csv_desc,
+            'quantity'    => qty,
+            'unit'        => unit_val,
+            'input'       => unit_val,
+            'factor'      => factor,
+            'weightUnit'  => weight_u,
+            'weightTotal' => weight_total,
+            'unitCost'    => u_cost,
+            'waste'       => waste,
+            'tax'         => tax,
+            'cost'        => cost
+          }
+
+          current_items << new_item
           added_count += 1
         end
       end
 
-      # บันทึกข้อมูลที่แมตช์แล้วลง PriceStore
       updated_payload = { 'items' => current_items }
       PriceStore.save_prices(updated_payload, model)
 
-      # แสดงผลใน UI ทันที
       if dialog && dialog.is_a?(UI::HtmlDialog)
-        js_code = "applyImportedCsvData(#{JSON.generate(current_items)});"
+        json_data = JSON.generate(current_items)
+        js_code = <<~JS
+          if (typeof applyImportedCsvData === 'function') {
+            applyImportedCsvData(#{json_data});
+          } else if (typeof renderTable === 'function') {
+            renderTable(#{json_data});
+          } else if (typeof updateUI === 'function') {
+            updateUI(#{json_data});
+          } else {
+            location.reload();
+          }
+        JS
         dialog.execute_script(js_code)
       end
 
@@ -118,6 +168,46 @@ module MaterialCostByTag
       current_items
     rescue => e
       UI.messagebox("เกิดข้อผิดพลาดในการ Import CSV: #{e.message}")
+      nil
+    end
+
+    private
+
+    # อ่านไฟล์รองรับทั้ง UTF-8 และ Windows-874 / TIS-620 ภาษาไทย
+    def self.read_file_utf8(file_path)
+      raw = File.read(file_path, mode: 'rb')
+      
+      # ตัด BOM UTF-8 ถ้ามี
+      raw = raw.byteslice(3..-1) if raw.start_with?("\xEF\xBB\xBF".b)
+
+      # ตรวจสอบและแปลง Encoding
+      if raw.valid_encoding? && raw.force_encoding('UTF-8').valid_encoding?
+        raw.encode('UTF-8', invalid: :replace, undef: :replace, replace: '')
+      else
+        # หากไม่ใช่ UTF-8 ให้ถอดรหัสจาก Windows-874 (ภาษาไทยใน Excel Windows)
+        raw.force_encoding('Windows-874').encode('UTF-8', invalid: :replace, undef: :replace, replace: '')
+      end
+    end
+
+    def self.normalize_str(text)
+      text.to_s.gsub("\u00A0", ' ').strip
+    end
+
+    def self.get_row_value(row, possible_keys)
+      possible_keys.each do |k|
+        if row.key?(k) && !row[k].nil? && row[k].to_s.strip != ''
+          return row[k].to_s.gsub(',', '').to_f
+        end
+      end
+      nil
+    end
+
+    def self.get_row_text(row, possible_keys)
+      possible_keys.each do |k|
+        if row.key?(k) && !row[k].nil? && row[k].to_s.strip != ''
+          return row[k].to_s.strip
+        end
+      end
       nil
     end
   end

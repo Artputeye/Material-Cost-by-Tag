@@ -2,9 +2,10 @@ let tagMeasurementsMap = {};
 let alertTimeout = null;
 
 const INPUT_UNITS = [
-  { value: 'm',  label: 'm' },
-  { value: 'm2', label: 'm²' },
-  { value: 'm3', label: 'm³' }
+  { value: 'm',   label: 'm' },
+  { value: 'm2',  label: 'm²' },
+  { value: 'm3',  label: 'm³' },
+  { value: 'pcs', label: 'pcs' } // <-- เพิ่ม pcs ตรงนี้
 ];
 
 // Helper: ถ้านิ่งหรือเป็น 0 ให้ส่งค่าว่าง "" กลับไป
@@ -84,10 +85,14 @@ function refreshAllRowQuantities() {
 
     if (tagName && unitSelect && qtyInput && tagMeasurementsMap[tagName]) {
       const selectedUnit = unitSelect.value;
-      const measurements = tagMeasurementsMap[tagName];
-      const rawQty = measurements[selectedUnit] ?? measurements['m2'] ?? 0;
-      qtyInput.value = formatNum(rawQty);
-      calculateRowCalculations(tr);
+      
+      // ถ้ายูนิตไม่ใช่ pcs ให้ดึงค่าจาก SketchUp
+      if (selectedUnit !== 'pcs') {
+        const measurements = tagMeasurementsMap[tagName];
+        const rawQty = measurements[selectedUnit] ?? measurements['m2'] ?? 0;
+        qtyInput.value = formatNum(rawQty);
+        calculateRowCalculations(tr);
+      }
     }
   });
   updateGrandTotals();
@@ -176,7 +181,14 @@ function createRow(data = {}) {
 
   const measurements = tagMeasurementsMap[tagName] || {};
   const currentUnit = data.input || 'm2';
-  const rawQty = measurements[currentUnit] ?? data.quantity;
+  
+  // กำหนดค่าเริ่มต้นของ Quantity
+  let rawQty;
+  if (currentUnit === 'pcs') {
+    rawQty = data.quantity ?? 1; // ถ้าเป็น pcs ให้ใช้ค่าจาก data หรือเริ่มต้นที่ 1
+  } else {
+    rawQty = measurements[currentUnit] ?? data.quantity;
+  }
   const initialQty = formatNum(rawQty);
 
   const unitOptionsHtml = INPUT_UNITS.map(u => 
@@ -191,7 +203,7 @@ function createRow(data = {}) {
     </td>
     <td><input type="text" class="input-control tag-input" value="${tagName}" readonly tabindex="-1" style="background-color: #f8fafc; color: #334155; font-weight: 600; cursor: not-allowed;" /></td>
     <td><input type="text" class="input-control desc-input" value="${data.description || tagName}"></td>
-    <td><input type="text" class="input-control text-right qty-input" value="${initialQty}" readonly tabindex="-1" style="background-color: #f1f5f9; color: #334155; font-weight: 600; cursor: not-allowed;" /></td>
+    <td><input type="number" step="any" class="input-control text-right qty-input" value="${initialQty}" /></td>
     <td>
       <select class="input-control unit-select text-center" style="font-weight: 600; color: #334155;">
         ${unitOptionsHtml}
@@ -217,12 +229,39 @@ function createRow(data = {}) {
   `;
 
   const unitSelect = tr.querySelector('.unit-select');
+  const qtyInput = tr.querySelector('.qty-input');
+
+  // ฟังก์ชันควบคุมการพิมพ์ Quantity ตามประเภทยูนิต
+  const toggleQtyState = (unit) => {
+    if (unit === 'pcs') {
+      qtyInput.removeAttribute('readonly');
+      qtyInput.removeAttribute('tabindex');
+      qtyInput.style.backgroundColor = '#ffffff';
+      qtyInput.style.cursor = 'text';
+    } else {
+      qtyInput.setAttribute('readonly', 'true');
+      qtyInput.setAttribute('tabindex', '-1');
+      qtyInput.style.backgroundColor = '#f1f5f9';
+      qtyInput.style.cursor = 'not-allowed';
+    }
+  };
+
+  // เรียกใช้ตั้งค่าครั้งแรก
+  toggleQtyState(currentUnit);
+
   unitSelect.addEventListener('change', (e) => {
     const selectedUnit = e.target.value;
-    const measurements = tagMeasurementsMap[tagName] || {};
-    tr.querySelector('.qty-input').value = formatNum(measurements[selectedUnit]);
+    toggleQtyState(selectedUnit);
+
+    if (selectedUnit !== 'pcs') {
+      const measurements = tagMeasurementsMap[tagName] || {};
+      qtyInput.value = formatNum(measurements[selectedUnit]);
+    }
     calculateRowCalculations(tr);
   });
+
+  // ฟัง Event เพิ่มเติมเมื่อมีการแก้ตัวเลข Manual ใน qtyInput
+  qtyInput.addEventListener('input', () => calculateRowCalculations(tr));
 
   ['.factor-input', '.weight-unit-input', '.cost-input', '.waste-input', '.tax-input'].forEach(selector => {
     tr.querySelector(selector).addEventListener('input', () => calculateRowCalculations(tr));
